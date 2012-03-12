@@ -11,7 +11,28 @@ char* xmlChar2C(xmlChar* x) { return (char *) x; }
 import "C"
 import (
     "errors"
+    "fmt"
 )
+
+type Errno int
+
+func (e Errno) Error() string {
+    s := errText[e]
+    if s == "" {
+        return fmt.Sprintf("errno %d", int(e))
+    }
+    return s
+}
+
+var (
+        ErrError      error = Errno(1)
+        ErrInternal   error = Errno(2)
+)
+
+var errText = map[Errno]string{
+        1:   "",
+        2:   "",
+}
 
 const (
     XML_START_ELEMENT = 1
@@ -41,31 +62,27 @@ type XmlTextReaderPtr struct {
     Ptr *C.struct_xmlTextReaderPtr
 }
 
-func Filename(filename string) (XmlTextReaderPtr, error) {
+func Filename(filename string) (*XmlTextReaderPtr, error) {
     reader := C.xmlNewTextReaderFilename(C.CString(filename))
     if nil == reader {
-        return XmlTextReaderPtr{}, errors.New("Unable to open " + filename)
+        return &XmlTextReaderPtr{}, errors.New("Unable to open " + filename)
     }
-    return XmlTextReaderPtr{reader}, nil
+    return &XmlTextReaderPtr{reader}, nil
 }
 
-func Read(reader XmlTextReaderPtr) int {
+func (reader *XmlTextReaderPtr) Read() int {
     return int(C.xmlTextReaderRead(reader.Ptr))
 }
 
-func Name(reader XmlTextReaderPtr) string {
+func (reader *XmlTextReaderPtr) Name() string {
     name := C.GoString(C.xmlChar2C(C.xmlTextReaderName(reader.Ptr)))
     return name
 }
 
-func Next(reader XmlTextReaderPtr) int {
-    return int(C.xmlTextReaderNext(reader.Ptr))
-}
-
-func NodeType(reader XmlTextReaderPtr) int {
+func (reader *XmlTextReaderPtr) NodeType() int {
     return int(C.xmlTextReaderNodeType(reader.Ptr))
 }
 
-func Value(reader XmlTextReaderPtr) string {
+func (reader *XmlTextReaderPtr) Value() string {
     return C.GoString(C.xmlChar2C(C.xmlTextReaderConstValue(reader.Ptr)))
 }
