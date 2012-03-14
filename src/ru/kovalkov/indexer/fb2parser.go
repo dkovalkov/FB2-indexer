@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "strconv"
+    "strings"
     "ru/kovalkov/xmltextreader"
 )
 
@@ -39,7 +40,27 @@ const (
     verse_tag = "v"
 )
 
+type Word struct {
+    text        string
+    fb2pointer  string
+    weight      float32
+}
+
 func main() {
+    c := make(chan *Word)
+    qchan := make(chan bool)
+    go processBook(c, qchan)
+    for {
+        select {
+        case word := <-c:
+            fmt.Println(word.text, word.fb2pointer, word.weight)
+        case <-qchan:
+            break
+        }
+    }
+}
+
+func processBook(c chan *Word, qchan chan bool) {
     reader, err := xmltextreader.Filename("Panov_V._Ruchnoyi_Privod.fb2")
     if nil != err {
         fmt.Println(err)
@@ -50,13 +71,14 @@ func main() {
     eventType := reader.NodeType()
 
     if res == 1 && xmltextreader.XML_START_ELEMENT == eventType && fictionbook_tag == reader.Name() {
-        if 1 == processDescription(reader) {
-            processBody(reader, fictionbook_tag, "", "/1")
+        if 1 == processDescription(reader, c) {
+            processBody(reader, fictionbook_tag, "/1", c)
+            qchan <- true
         }
     }
 }
 
-func processBody(reader *xmltextreader.XmlTextReaderPtr, tag string, parentTag string, currentPointer string) int {
+func processBody(reader *xmltextreader.XmlTextReaderPtr, tag string, currentPointer string, c chan *Word) {
     currentElementNum := 0
     res := reader.Read()
     eventType := reader.NodeType()
@@ -64,36 +86,45 @@ func processBody(reader *xmltextreader.XmlTextReaderPtr, tag string, parentTag s
         currentElementNum = 1;
     }
 
-    for ;!(xmltextreader.XML_END_ELEMENT == eventType && tag == reader.Name()) && -1 != res;
-            {
-        elementPointer := currentPointer
+    for ;!(xmltextreader.XML_END_ELEMENT == eventType && tag == reader.Name()) && -1 != res; {
+        //elementPointer := currentPointer
         name := reader.Name()
 
         if xmltextreader.XML_START_ELEMENT == eventType {
             currentElementNum += 1
 
             if paragraph_tag == name || text_author_tag == name || subtitle_tag == name || verse_tag == name {
-                elementPointer = currentPointer + "/" + strconv.Itoa(currentElementNum)
-                getParaToTagEnd(reader, name)
+                //elementPointer = currentPointer + "/" + strconv.Itoa(currentElementNum)
+                //fmt.Println("elementPointer", elementPointer)
+                getParaToTagEnd(reader, name, c)
             } else if body_tag == name {
+                hasAttr, err := reader.HasAttributes()
+                if nil == err && hasAttr == false {
+                    processBody(reader, name, currentPointer + "/" + strconv.Itoa(currentElementNum), c)
+                }
             } else if section_tag == name {
-            } else if title_tag == name {
-            } else if epigraph_tag == name {
+                hasAttr, err := reader.HasAttributes()
+                if nil == err && hasAttr {
+//                  Skip section with id attr
+                    getParaToTagEnd(reader, name, c)
+                } else {
+                    processBody(reader, name, currentPointer + "/" + strconv.Itoa(currentElementNum), c)
+                }
+            } else if title_tag == name || epigraph_tag == name {
+                processBody(reader, name, currentPointer + "/" + strconv.Itoa(currentElementNum), c)
             }
-            fmt.Println("elementPointer", elementPointer)
         } else if xmltextreader.XML_END_ELEMENT == eventType {
             name = reader.Name()
             if stanza_tag == name {
-                elementPointer = currentPointer + "/" + strconv.Itoa(currentElementNum)
+                //elementPointer = currentPointer + "/" + strconv.Itoa(currentElementNum)
             }
         }
         res = reader.Read()
         eventType = reader.NodeType()
     }
-    return 1
 }
 
-func processDescription(reader *xmltextreader.XmlTextReaderPtr) int {
+func processDescription(reader *xmltextreader.XmlTextReaderPtr, c chan *Word) int {
     nextTag(reader)
     if reader.Name() != description_tag {
         return -1
@@ -104,7 +135,7 @@ func processDescription(reader *xmltextreader.XmlTextReaderPtr) int {
         if eventType == xmltextreader.XML_START_ELEMENT {
             name := reader.Name()
             if name == title_info_tag || name == src_title_info_tag {
-                processTitleInfo(reader, name)
+                processTitleInfo(reader, name, c)
             }
         }
         res = reader.Read()
@@ -113,7 +144,7 @@ func processDescription(reader *xmltextreader.XmlTextReaderPtr) int {
     return 1
 }
 
-func processTitleInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
+func processTitleInfo(reader *xmltextreader.XmlTextReaderPtr, tag string, c chan *Word) {
     res := reader.Read()
     eventType := reader.NodeType()
 
@@ -121,13 +152,13 @@ func processTitleInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
         if eventType == xmltextreader.XML_START_ELEMENT {
             name := reader.Name()
             if author_tag == name {
-                processPersonInfo(reader, name)
+                processPersonInfo(reader, name, c)
             } else if book_title_tag == name {
-                fmt.Println("book title", getText(reader))
+                sendWords(getText(reader), "", 2.0, c)
             } else if annotation_tag == name {
-                fmt.Println("annotation", getText(reader))
+                getParagraphsToTagEnd(reader, annotation_tag, c)
             } else if translator_tag == name {
-                fmt.Println("translator", getText(reader))
+                sendWords(getText(reader), "", 1.1, c)
             }
         }
         res = reader.Read()
@@ -135,7 +166,7 @@ func processTitleInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
     }
 }
 
-func processPersonInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
+func processPersonInfo(reader *xmltextreader.XmlTextReaderPtr, tag string, c chan *Word) {
     res := reader.Read()
     eventType := reader.NodeType()
 
@@ -143,13 +174,13 @@ func processPersonInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
         if eventType == xmltextreader.XML_START_ELEMENT {
             name := reader.Name()
             if first_name_tag == name {
-                fmt.Println("first name", getText(reader))
+                sendWords(getText(reader), "first name", 1.3, c)
             } else if last_name_tag == name {
-                fmt.Println("last name", getText(reader))
+                sendWords(getText(reader), "last name", 1.3, c)
             } else if middle_name_tag == name {
-                fmt.Println("middle name", getText(reader))
+                sendWords(getText(reader), "middle name", 1.3, c)
             } else if nick_name_tag == name {
-                fmt.Println("nick name", getText(reader))
+                sendWords(getText(reader), "nick name", 1.1, c)
             }
         }
         res = reader.Read()
@@ -157,7 +188,23 @@ func processPersonInfo(reader *xmltextreader.XmlTextReaderPtr, tag string) {
     }
 }
 
-func getParaToTagEnd(reader *xmltextreader.XmlTextReaderPtr, tag string) {
+func getParagraphsToTagEnd(reader *xmltextreader.XmlTextReaderPtr, tag string, c chan *Word) {
+    res := reader.Read()
+    eventType := reader.NodeType()
+
+    for ;!(eventType == xmltextreader.XML_END_ELEMENT && tag == reader.Name()) && res != -1; {
+        if xmltextreader.XML_START_ELEMENT == eventType {
+            name := reader.Name()
+            if name == paragraph_tag {
+                getParaToTagEnd(reader, paragraph_tag, c)
+            }
+        }
+        res = reader.Read()
+        eventType = reader.NodeType()
+    }
+}
+
+func getParaToTagEnd(reader *xmltextreader.XmlTextReaderPtr, tag string, c chan *Word) {
     res := reader.Read()
     eventType := reader.NodeType()
 
@@ -172,8 +219,15 @@ func getParaToTagEnd(reader *xmltextreader.XmlTextReaderPtr, tag string) {
 
     for ;!(eventType == xmltextreader.XML_END_ELEMENT && tag == reader.Name()) && res != -1; {
         if xmltextreader.XML_TEXT_NODE == eventType {
-            fmt.Println("style", styles)
-            fmt.Println(reader.Value())
+            var weight float32 = 1.0
+            if styles & strong != 0 {
+                weight += 0.2
+            } else if styles & emphasis != 0 {
+                weight += 0.1
+            } else if styles & link != 0 {
+                weight += 0.1
+            }
+            sendWords(reader.Value(), "p", weight, c)
         } else if xmltextreader.XML_START_ELEMENT == eventType {
             name = reader.Name()
             if emphasis_tag == name {
@@ -202,7 +256,7 @@ func getText(reader *xmltextreader.XmlTextReaderPtr) string {
     res := reader.Read()
     eventType := reader.NodeType()
 
-    for ;eventType != xmltextreader.XML_END_ELEMENT && xmltextreader.XML_TEXT_NODE != eventType && res != -1; {
+    for ;xmltextreader.XML_END_ELEMENT != eventType && xmltextreader.XML_TEXT_NODE != eventType && res != -1; {
         res = reader.Read()
         eventType = reader.NodeType()
     }
@@ -211,6 +265,14 @@ func getText(reader *xmltextreader.XmlTextReaderPtr) string {
         return reader.Value()
     }
     return ""
+}
+
+func sendWords(text string, pointer string, weight float32, c chan *Word) {
+    for _, w := range strings.Split(text, " ") {
+        if len([]rune(w)) > 1 {
+            c <- &Word{w, pointer, weight}
+        }
+    }
 }
 
 func nextTag(reader *xmltextreader.XmlTextReaderPtr) int {

@@ -25,13 +25,13 @@ func (e Errno) Error() string {
 }
 
 var (
-        ErrError      error = Errno(1)
-        ErrInternal   error = Errno(2)
+        ErrError        error = Errno(1)
+        ErrNoAttributes  error = Errno(2)
 )
 
 var errText = map[Errno]string{
-        1:   "",
-        2:   "",
+        1:   "Error",
+        2:   "Has no attributes",
 }
 
 const (
@@ -85,4 +85,14 @@ func (reader *XmlTextReaderPtr) NodeType() int {
 
 func (reader *XmlTextReaderPtr) Value() string {
     return C.GoString(C.xmlChar2C(C.xmlTextReaderConstValue(reader.Ptr)))
+}
+
+func (reader *XmlTextReaderPtr) HasAttributes() (bool, error) {
+    hasAttr := int(C.xmlTextReaderHasAttributes(reader.Ptr))
+    if hasAttr == -1 {
+        return false, ErrNoAttributes
+    } else if hasAttr == 1 {
+        return true, nil
+    }
+    return false, nil
 }
