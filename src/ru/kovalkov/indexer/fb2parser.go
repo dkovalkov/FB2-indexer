@@ -46,20 +46,6 @@ type Word struct {
     weight      float32
 }
 
-func main() {
-    c := make(chan *Word)
-    qchan := make(chan bool)
-    go processBook(c, qchan)
-    for {
-        select {
-        case word := <-c:
-            fmt.Println(word.text, word.fb2pointer, word.weight)
-        case <-qchan:
-            break
-        }
-    }
-}
-
 func processBook(c chan *Word, qchan chan bool) {
     reader, err := xmltextreader.Filename("Panov_V._Ruchnoyi_Privod.fb2")
     if nil != err {
@@ -73,9 +59,9 @@ func processBook(c chan *Word, qchan chan bool) {
     if res == 1 && xmltextreader.XML_START_ELEMENT == eventType && fictionbook_tag == reader.Name() {
         if 1 == processDescription(reader, c) {
             processBody(reader, fictionbook_tag, "/1", c)
-            qchan <- true
         }
     }
+    qchan <- true
 }
 
 func processBody(reader *xmltextreader.XmlTextReaderPtr, tag string, currentPointer string, c chan *Word) {

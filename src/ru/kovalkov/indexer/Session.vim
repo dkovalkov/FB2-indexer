@@ -25,7 +25,7 @@ set shiftwidth=4
 set softtabstop=4
 set suffixes=.bak,~,.swp,.o,.info,.aux,.log,.dvi,.bbl,.blg,.brf,.cb,.ind,.idx,.ilg,.inx,.out,.toc
 set termencoding=utf-8
-set window=34
+set window=41
 let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 let v:this_session=expand("<sfile>:p")
 silent only
@@ -39,8 +39,10 @@ badd +37 src/index_fb2/xmltextreader.go
 badd +30 gocode/src/ru/kovalkov/indexfb2/index.go
 badd +1 gocode/src/ru/kovalkov/xmltextreader/xmltextreader.go
 badd +1 gocode/src/ru/kovalkov/indexfb2/fb2parser.go
+badd +0 gocode/indexfb2/src/ru/kovalkov/indexer/fb2parser.go
+badd +0 gocode/indexfb2/src/ru/kovalkov/xmltextreader/xmltextreader.go
 silent! argdel *
-edit gocode/src/ru/kovalkov/xmltextreader/xmltextreader.go
+edit gocode/indexfb2/src/ru/kovalkov/indexer/fb2parser.go
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -148,13 +150,13 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 47 - ((34 * winheight(0) + 19) / 38)
+let s:l = 275 - ((15 * winheight(0) + 20) / 41)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-47
-normal! 073l
-tabedit gocode/src/ru/kovalkov/indexfb2/fb2parser.go
+275
+normal! 02l
+tabedit gocode/indexfb2/src/ru/kovalkov/xmltextreader/xmltextreader.go
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -262,12 +264,12 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 65 - ((13 * winheight(0) + 19) / 38)
+let s:l = 98 - ((29 * winheight(0) + 20) / 41)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-65
-normal! 036l
+98
+normal! 0
 tabnext 2
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
