@@ -50,7 +50,67 @@ func main() {
 var nodeCount int
 
 func searchNode(node *Node, word *Word) {
+    if nodpackage main
+
+import (
+    "fmt"
+    "time"
+	"runtime"
+)
+
+type NodeInfo struct {
+    fb2pointer  string
+    weight      float32
+}
+
+type Node struct {
+    text    string
+    info    []*NodeInfo
+    left    *Node
+    right   *Node
+}
+
+func main() {
+	fmt.Println("max procs", runtime.GOMAXPROCS(16))
+    c := make(chan *Word)
+    qchan := make(chan bool)
+    var root *Node = new(Node)
+    go processBook(c, qchan)
+
+    L: for {
+        select {
+        case word := <-c:
+            //fmt.Println(root)
+            searchNode(root, word)
+        case <-qchan:
+            break L
+        }
+    }
+
+    stime := time.Now().UnixNano()
+    find(root, "мужчина", qchan)
+    //go find(root, "женщина", qchan)
+    //go find(root, "оно", qchan)
+	//<-qchan
+	//<-qchan
+	//<-qchan
+    etime := time.Now().UnixNano()
+    fmt.Println("time elapsed", (etime - stime) / 1e3, "ms")
+    fmt.Println("nodeCount", nodeCount)
+}
+
+var nodeCount int
+
+func searchNode(node *Node, word *Word) {
     if node.text == "" {
+        node.text = word.text
+        node.info = make([]*NodeInfo, 1)
+        node.info[0] = &NodeInfo{word.fb2pointer, word.weight}
+        node.right = new(Node)
+        node.left = new(Node)
+        nodeCount += 1
+        //fmt.Println(word.text)
+    } else ie.text == "" {
         node.text = word.text
         node.info = make([]*NodeInfo, 1)
         node.info[0] = &NodeInfo{word.fb2pointer, word.weight}
