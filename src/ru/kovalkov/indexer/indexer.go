@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "time"
+    "runtime"
 )
 
 type NodeInfo struct {
@@ -18,6 +19,7 @@ type Node struct {
 }
 
 func main() {
+    fmt.Println("max procs", runtime.GOMAXPROCS(16))
     c := make(chan *Word)
     qchan := make(chan bool)
     var root *Node = new(Node)
@@ -34,7 +36,12 @@ func main() {
     }
 
     stime := time.Now().UnixNano()
-    find(root, "вот")
+    find(root, "мужчина", qchan)
+    //go find(root, "женщина", qchan)
+    //go find(root, "оно", qchan)
+    //<-qchan
+    //<-qchan
+    //<-qchan
     etime := time.Now().UnixNano()
     fmt.Println("time elapsed", (etime - stime) / 1e3, "ms")
     fmt.Println("nodeCount", nodeCount)
@@ -50,6 +57,7 @@ func searchNode(node *Node, word *Word) {
         node.right = new(Node)
         node.left = new(Node)
         nodeCount += 1
+        //fmt.Println(word.text)
     } else if word.text > node.text {
         searchNode(node.right, word)
     } else if word.text < node.text {
@@ -59,17 +67,19 @@ func searchNode(node *Node, word *Word) {
     }
 }
 
-func find(node *Node, word string) {
-    if word > node.text {
-        find(node.right, word)
+func find(node *Node, word string, quit chan bool) {
+    if node == nil {
+        fmt.Println("no such phrase")
+        //quit <- true
+    } else if word > node.text {
+        find(node.right, word, quit)
     } else if word < node.text {
-        find(node.left, word)
+        find(node.left, word, quit)
     } else if word == node.text {
         fmt.Println("found", word, len(node.info), "times")
+        //quit <- true
         //for _, info := range(node.info) {
             //fmt.Println(info.fb2pointer, info.weight)
         //}
-    } else {
-        fmt.Println("no such phrase")
     }
 }

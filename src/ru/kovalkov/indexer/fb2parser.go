@@ -5,6 +5,7 @@ import (
     "strconv"
     "strings"
     "ru/kovalkov/xmltextreader"
+    "regexp"
 )
 
 const (
@@ -254,9 +255,10 @@ func getText(reader *xmltextreader.XmlTextReaderPtr) string {
 }
 
 func sendWords(text string, pointer string, weight float32, c chan *Word) {
-    for _, w := range strings.Split(text, " ") {
+	patrn, _ := regexp.Compile("(\\pL+|\\pN+)")
+    for _, w := range patrn.FindAllString(text, -1) {
         if len([]rune(w)) > 1 {
-            c <- &Word{w, pointer, weight}
+            c <- &Word{strings.ToLower(w), pointer, weight}
         }
     }
 }
