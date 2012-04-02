@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"time"
     "os"
+    "io/ioutil"
+    "log"
+    "strings"
 )
 
 type NodeInfo struct {
@@ -24,26 +27,51 @@ func main() {
         return
     }
     search := os.Args[1]
-	c := make(chan *Word)
-	qchan := make(chan bool)
-	var root *Node = new(Node)
-	go processBook(c, qchan)
-
-L:
-	for {
-		select {
-		case word := <-c:
-			searchNode(root, word)
-		case <-qchan:
-			break L
-		}
-	}
+    root := dirTraverse("fb2docs")
 
 	stime := time.Now().UnixNano()
 	find(root, search)
 	etime := time.Now().UnixNano()
 	fmt.Println("time elapsed", (etime-stime)/1e3, "ms")
 	fmt.Println("nodeCount", nodeCount)
+}
+
+func dirTraverse(path string) *Node {
+	c := make(chan *Word)
+	qchan := make(chan bool)
+	var root *Node = new(Node)
+    files, err := ioutil.ReadDir(path)
+
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fileCount := 0
+    for _, fi := range files {
+        if strings.HasSuffix(fi.Name(), ".fb2") {
+            fileName := path + string(os.PathSeparator) + fi.Name()
+            fmt.Println("Indexing", fileName)
+	        go processBook(fileName, c, qchan)
+            fileCount += 1
+        }
+    }
+
+    if fileCount > 0 {
+L:
+        for {
+            select {
+            case word := <-c:
+                searchNode(root, word)
+            case <-qchan:
+                fileCount -= 1
+                if 0 == fileCount {
+                    break L
+                }
+            }
+        }
+    }
+
+    return root
 }
 
 var nodeCount int

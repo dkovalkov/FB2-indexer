@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"regexp"
 	"ru/kovalkov/xmltextreader"
 	"strconv"
@@ -47,11 +47,10 @@ type Word struct {
 	weight     float32
 }
 
-func processBook(c chan *Word, qchan chan bool) {
-	reader, err := xmltextreader.Filename("Panov_V._Ruchnoyi_Privod.fb2")
+func processBook(fileName string, c chan *Word, qchan chan bool) {
+	reader, err := xmltextreader.Filename(fileName)
 	if nil != err {
-		fmt.Println(err)
-		return
+        log.Fatal(err)
 	}
 
 	res := reader.Read()
